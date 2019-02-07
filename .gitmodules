@@ -1,0 +1,3 @@
+[submodule "cubic_sdk"]
+	path = cubic_sdk
+	url = git@github.com:Smart-Hypercube/cubic-sdk.git
