@@ -32,7 +32,7 @@ class LocalFS:
 
     def generate_block_hashes(self, path):
         assert path in self.dict and not self.dict[path].is_dir
-        with open(self.realpath(path), "rb") as f:
+        with open(self.realpath(path), 'rb') as f:
             self.dict[path].block_hashes = []
-            for block in iter(lambda: f.read(config.block_size), b""):
+            for block in iter(lambda: f.read(config.block_size), b''):
                 self.dict[path].block_hashes.append(config.hash_algo(block))

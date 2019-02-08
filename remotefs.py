@@ -13,7 +13,7 @@ class RemoteFS:
 
     def generate_dict(self, sdk_root: SDK_Node):
         path = sdk_root.path.decode()
-        while path.startswith("/"):
+        while path.startswith('/'):
             path = path[1:]
         if path:
             meta = json.loads(sdk_root.meta.decode())
@@ -34,7 +34,7 @@ class RemoteFS:
 
     def update_remote(self, *, add, remove):
         remove_list = [SDK_Node(path.encode(), is_dir=self.dict[path].is_dir) for path in remove]
-        remove_list.sort(key=lambda n: n.path)
+        remove_list.sort(key=lambda n: n.path, reverse=True)
         add_list = []
         for path, node in add.items():
             if node.is_dir:

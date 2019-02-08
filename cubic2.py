@@ -70,7 +70,7 @@ def sync(localfs, remotefs):
                         block_data = f.read(config.block_size)
                         buffer[block_hash] = block_data
                         total_size = sum(len(b) for b in buffer.values())
-                        if total_size >= config.block_size:
+                        if total_size >= config.upload_max_size:
                             logging.info(
                                 'Uploading %s blocks, total size %s bytes',
                                 len(buffer),
@@ -86,7 +86,7 @@ def sync(localfs, remotefs):
     return True
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     coloredlogs.install(level=config.log_level, fmt=config.log_format)
     server = CubicServer(config.server_addr)
     local_dir = sys.argv[1]
