@@ -25,7 +25,7 @@ class BlockCache:
 
     def get(self, block_hash):
         if block_hash not in self.cache:
-            logging.info('Cache miss')
+            logging.debug('Cache miss')
             data = self._get_block(block_hash)
             while sum(len(block) for block, _ in self.cache.values()) + len(data) > self.max_size:
                 oldest = time.time()
@@ -34,10 +34,10 @@ class BlockCache:
                         oldest = t
                         oldest_hash = h
                 del self.cache[oldest_hash]
-            logging.info('Cache block count = %s, total size = %s',
+            logging.debug('Cache block count = %s, total size = %s',
                          len(self.cache), sum(len(block) for block, _ in self.cache.values()))
         else:
-            logging.info('Cache hit')
+            logging.debug('Cache hit')
             data, _ = self.cache[block_hash]
         self.cache[block_hash] = data, time.time()
         return data
@@ -97,5 +97,5 @@ class CubicFS(LoggingMixIn, Operations):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     fuse = FUSE(CubicFS(), sys.argv[1], foreground=True)
