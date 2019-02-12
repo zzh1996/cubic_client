@@ -35,18 +35,19 @@ def sync(localfs, remotefs):
     if not deleted_items and not new_items:
         return False
 
-    all_block_hashes = []
+    all_block_hashes = set()
     logging.info('Scanning local files')
     for path in new_items:
         if not localfs.dict[path].is_dir:
             logging.info('Scanning file %s', path)
             localfs.generate_block_hashes(path)
-            all_block_hashes.extend(localfs.dict[path].block_hashes)
+            for block_hash in localfs.dict[path].block_hashes:
+                all_block_hashes.add(block_hash)
     while True:
         logging.info('Checking remote existing blocks')
-        nonexists = list(set(all_block_hashes) - set(remotefs.check_hashes(all_block_hashes)))
+        nonexists = all_block_hashes - set(remotefs.check_hashes(list(all_block_hashes)))
         logging.info('%s blocks exists, %s blocks to be uploaded',
-                     len(all_block_hashes) - len(nonexists),
+                     len(all_block_hashes - nonexists),
                      len(nonexists),
                      )
         if not nonexists:
@@ -69,6 +70,7 @@ def sync(localfs, remotefs):
                         f.seek(config.block_size * i, 0)
                         block_data = f.read(config.block_size)
                         buffer.append(block_data)
+                        nonexists.remove(block_hash)
                         total_size = sum(len(b) for b in buffer)
                         if total_size >= config.upload_max_size:
                             logging.info(
