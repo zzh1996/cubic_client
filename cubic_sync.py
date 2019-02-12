@@ -4,7 +4,7 @@ import coloredlogs
 import sys
 import logging
 import config
-from cubic_sdk.cubic import CubicServer
+from cubic_sdk.cubic import Cubic as CubicServer
 from localfs import LocalFS
 from remotefs import RemoteFS
 
@@ -44,7 +44,7 @@ def sync(localfs, remotefs):
             all_block_hashes.extend(localfs.dict[path].block_hashes)
     while True:
         logging.info('Checking remote existing blocks')
-        nonexists = list(set(all_block_hashes) - set(remotefs.server.check_hash(all_block_hashes)))
+        nonexists = list(set(all_block_hashes) - set(remotefs.check_hashes(all_block_hashes)))
         logging.info('%s blocks exists, %s blocks to be uploaded',
                      len(all_block_hashes) - len(nonexists),
                      len(nonexists),
@@ -56,7 +56,7 @@ def sync(localfs, remotefs):
             logging.info('Uploading done')
             break
 
-        buffer = {}
+        buffer = []
         for path in new_items:
             node = localfs.dict[path]
             if not node.is_dir:
@@ -68,28 +68,28 @@ def sync(localfs, remotefs):
                             f = open(localfs.realpath(path), 'rb')
                         f.seek(config.block_size * i, 0)
                         block_data = f.read(config.block_size)
-                        buffer[block_hash] = block_data
-                        total_size = sum(len(b) for b in buffer.values())
+                        buffer.append(block_data)
+                        total_size = sum(len(b) for b in buffer)
                         if total_size >= config.upload_max_size:
                             logging.info(
                                 'Uploading %s blocks, total size %s bytes',
                                 len(buffer),
                                 total_size,
                             )
-                            server.put_block(buffer)
-                            buffer = {}
+                            remotefs.put_blocks(buffer)
+                            buffer = []
                 if f is not None:
                     f.close()
         if buffer:
             logging.info('Uploading the last blocks')
-            server.put_block(buffer)
+            remotefs.put_blocks(buffer)
     return True
 
 
 if __name__ == '__main__':
     coloredlogs.install(level=config.log_level, fmt=config.log_format)
-    server = CubicServer(config.server_addr)
-    local_dir = sys.argv[1]
+    server = CubicServer(sys.argv[1], sys.argv[2])
+    local_dir = sys.argv[3]
     localfs = LocalFS(local_dir)
     remotefs = RemoteFS(server)
     while sync(localfs, remotefs):

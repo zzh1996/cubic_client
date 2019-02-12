@@ -18,11 +18,10 @@ class LocalFS:
         self.clear()
         for root, dirs, files in os.walk(self.base_path, followlinks=True):
             dir_path = os.path.relpath(root, self.base_path)
-            if dir_path != '.':
-                st = os.stat(self.realpath(dir_path))
-                self.dict[dir_path] = Node(is_dir=True, mode=st.st_mode, mtime=st.st_mtime)
-            else:
+            if dir_path == '.':
                 dir_path = ''
+            st = os.stat(self.realpath(dir_path))
+            self.dict[dir_path] = Node(is_dir=True, mode=st.st_mode, mtime=st.st_mtime)
             for file in files:
                 file_path = os.path.join(dir_path, file)
                 st = os.stat(self.realpath(file_path))

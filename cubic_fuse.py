@@ -6,21 +6,20 @@ import os
 import time
 
 from remotefs import RemoteFS
-from cubic_sdk.cubic import CubicServer
 from errno import ENOENT
-
+from cubic_sdk.cubic import Cubic as CubicServer
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 
 class BlockCache:
-    def __init__(self, server, max_size=16 * 1024 * 1024):
+    def __init__(self, remotefs, max_size=16 * 1024 * 1024):
         self.cache = {}
-        self.server = server
+        self.remotefs = remotefs
         self.max_size = max_size
 
     def _get_block(self, block_hash):
-        data = self.server.get_block([block_hash])[block_hash]
-        assert block_hash == config.hash_algo(data)
+        data = self.remotefs.get_block(block_hash)
+        assert config.hash_algo(data) == block_hash
         return data
 
     def get(self, block_hash):
@@ -35,7 +34,7 @@ class BlockCache:
                         oldest_hash = h
                 del self.cache[oldest_hash]
             logging.debug('Cache block count = %s, total size = %s',
-                         len(self.cache), sum(len(block) for block, _ in self.cache.values()))
+                          len(self.cache), sum(len(block) for block, _ in self.cache.values()))
         else:
             logging.debug('Cache hit')
             data, _ = self.cache[block_hash]
@@ -44,26 +43,21 @@ class BlockCache:
 
 
 class CubicFS(LoggingMixIn, Operations):
-    def __init__(self):
-        root = os.stat(sys.argv[1])
-        self.root_attr = {'st_size': root.st_size, 'st_mtime': root.st_mtime, 'st_mode': root.st_mode}
-        self.remotefs = RemoteFS(CubicServer(config.server_addr))
+    def __init__(self, user, token):
+        self.remotefs = RemoteFS(CubicServer(user, token))
         self.remotefs.fetch_remote()
-        self.block_cache = BlockCache(self.remotefs.server)
+        self.block_cache = BlockCache(self.remotefs)
 
     def getattr(self, path, fh=None):
         path = path[1:]
-        if path:
-            if path in self.remotefs.dict:
-                item = self.remotefs.dict[path]
-                if item.is_dir:
-                    return {'st_size': 0, 'st_mtime': item.mtime, 'st_mode': item.mode}
-                else:
-                    return {'st_size': item.size, 'st_mtime': item.mtime, 'st_mode': item.mode}
+        if path in self.remotefs.dict:
+            item = self.remotefs.dict[path]
+            if item.is_dir:
+                return {'st_size': 0, 'st_mtime': item.mtime, 'st_mode': item.mode}
             else:
-                raise FuseOSError(ENOENT)
+                return {'st_size': item.size, 'st_mtime': item.mtime, 'st_mode': item.mode}
         else:
-            return self.root_attr
+            raise FuseOSError(ENOENT)
 
     def read(self, path, size, offset, fh):
         path = path[1:]
@@ -84,7 +78,7 @@ class CubicFS(LoggingMixIn, Operations):
         path = path[1:]
         if path == '':
             for p in self.remotefs.dict:
-                if '/' not in p:
+                if p and '/' not in p:
                     items.append(p)
             return items
         elif path in self.remotefs.dict and self.remotefs.dict[path].is_dir:
@@ -98,4 +92,4 @@ class CubicFS(LoggingMixIn, Operations):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    fuse = FUSE(CubicFS(), sys.argv[1], foreground=True)
+    fuse = FUSE(CubicFS(sys.argv[1], sys.argv[2]), sys.argv[3], foreground=True)

@@ -1,4 +1,4 @@
-from cubic_sdk.cubic import Node as SDK_Node, CubicServer
+from cubic_sdk.cubic import Item as SDK_Node, Cubic as CubicServer
 from node import Node
 import json
 
@@ -11,44 +11,56 @@ class RemoteFS:
     def clear(self):
         self.dict = {}
 
-    def generate_dict(self, sdk_root: SDK_Node):
-        path = sdk_root.path.decode()
-        while path.startswith('/'):
-            path = path[1:]
-        if path:
-            meta = json.loads(sdk_root.meta.decode())
+    def generate_dict(self, items):
+        if items is None:
+            return
+        for item in items:
+            path = item.path.decode()
+            meta = json.loads(item.meta.decode())
             mode = meta['mode']
             mtime = meta['mtime']
-            n = Node(is_dir=sdk_root.is_dir, mode=mode, mtime=mtime)
-            if not n.is_dir:
-                n.size = sdk_root.size
-                n.block_hashes = sdk_root.blocks
+            is_dir = path.endswith('/')
+            n = Node(is_dir=is_dir, mode=mode, mtime=mtime)
+            if is_dir:
+                path = path[:-1]
+            else:
+                n.size = meta['size']
+                n.block_hashes = item.blocks
             self.dict[path] = n
-        for c in sdk_root.children:
-            self.generate_dict(c)
 
     def fetch_remote(self):
-        sdk_root = self.server.get_tree(SDK_Node(b'/'))
+        items = self.server.get_tree()
         self.clear()
-        self.generate_dict(sdk_root)
+        self.generate_dict(items)
+
+    def check_hashes(self, hashes):
+        return [hash for hash, exist in zip(hashes, self.server.bulk_head_block(hashes)) if exist]
 
     def update_remote(self, *, add, remove):
-        remove_list = [SDK_Node(path.encode(), is_dir=self.dict[path].is_dir) for path in remove]
-        remove_list.sort(key=lambda n: n.path, reverse=True)
+        remove_list = []
+        for path in remove:
+            remove_list.append((path + ('/' if self.dict[path].is_dir else '')).encode())
         add_list = []
         for path, node in add.items():
             if node.is_dir:
                 add_list.append(SDK_Node(
-                    path.encode(),
-                    is_dir=True,
-                    meta=json.dumps({'mode': node.mode, 'mtime': node.mtime}).encode(),
+                    (path + '/').encode(),
+                    json.dumps({'mode': node.mode, 'mtime': node.mtime}).encode(),
+                    [],
                 ))
             else:
                 add_list.append(SDK_Node(
                     path.encode(),
-                    is_dir=False,
-                    meta=json.dumps({'mode': node.mode, 'mtime': node.mtime}).encode(),
-                    size=node.size,
-                    blocks=node.block_hashes
+                    json.dumps({'mode': node.mode, 'mtime': node.mtime, 'size': node.size}).encode(),
+                    node.block_hashes,
                 ))
-        self.server.update_tree(add=add_list, remove=remove_list)
+        self.server.post_tree(put_items=add_list, delete_paths=remove_list)
+
+    def put_blocks(self, blocks):
+        self.server.bulk_post_block(blocks)
+
+    def get_blocks(self, hashes):
+        return self.server.bulk_get_block(hashes)
+
+    def get_block(self, hash):
+        return self.server.get_block(hash)
