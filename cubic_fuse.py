@@ -18,9 +18,7 @@ class BlockCache:
         self.max_size = max_size
 
     def _get_block(self, block_hash):
-        data = self.remotefs.get_block(block_hash)
-        assert config.hash_algo(data) == block_hash
-        return data
+        return self.remotefs.get_block(block_hash)
 
     def get(self, block_hash):
         if block_hash not in self.cache:
@@ -43,8 +41,8 @@ class BlockCache:
 
 
 class CubicFS(LoggingMixIn, Operations):
-    def __init__(self, user, token):
-        self.remotefs = RemoteFS(CubicServer(user, token))
+    def __init__(self, user, token, key):
+        self.remotefs = RemoteFS(CubicServer(user, token), key)
         self.remotefs.fetch_remote()
         self.block_cache = BlockCache(self.remotefs)
 
@@ -92,4 +90,8 @@ class CubicFS(LoggingMixIn, Operations):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    fuse = FUSE(CubicFS(sys.argv[1], sys.argv[2]), sys.argv[3], foreground=True)
+    if len(sys.argv) >= 5:
+        key = sys.argv[4]
+    else:
+        key = ''
+    fuse = FUSE(CubicFS(sys.argv[1], sys.argv[2], key), sys.argv[3], foreground=True)

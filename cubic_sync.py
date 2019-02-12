@@ -90,7 +90,11 @@ if __name__ == '__main__':
     coloredlogs.install(level=config.log_level, fmt=config.log_format)
     server = CubicServer(sys.argv[1], sys.argv[2])
     local_dir = sys.argv[3]
-    localfs = LocalFS(local_dir)
-    remotefs = RemoteFS(server)
+    if len(sys.argv) >= 5:
+        key = sys.argv[4]
+    else:
+        key = ''
+    localfs = LocalFS(local_dir, key)
+    remotefs = RemoteFS(server, key)
     while sync(localfs, remotefs):
         pass

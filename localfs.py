@@ -1,11 +1,13 @@
 from node import Node
 import os
 import config
+from encryption import Encryption
 
 
 class LocalFS:
-    def __init__(self, base_path):
+    def __init__(self, base_path, key):
         self.base_path = base_path
+        self.crypto = Encryption(key)
         self.clear()
 
     def clear(self):
@@ -34,4 +36,4 @@ class LocalFS:
         with open(self.realpath(path), 'rb') as f:
             self.dict[path].block_hashes = []
             for block in iter(lambda: f.read(config.block_size), b''):
-                self.dict[path].block_hashes.append(config.hash_algo(block))
+                self.dict[path].block_hashes.append(config.hash_algo(self.crypto.encrypt(block)))

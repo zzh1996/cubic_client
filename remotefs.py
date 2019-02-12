@@ -1,11 +1,13 @@
 from cubic_sdk.cubic import Item as SDK_Node, Cubic as CubicServer
 from node import Node
 import json
+from encryption import Encryption
 
 
 class RemoteFS:
-    def __init__(self, server: CubicServer):
+    def __init__(self, server: CubicServer, key):
         self.server = server
+        self.crypto = Encryption(key)
         self.clear()
 
     def clear(self):
@@ -15,8 +17,8 @@ class RemoteFS:
         if items is None:
             return
         for item in items:
-            path = item.path.decode()
-            meta = json.loads(item.meta.decode())
+            path = self.crypto.decrypt(item.path).decode()
+            meta = json.loads(self.crypto.decrypt(item.meta).decode())
             mode = meta['mode']
             mtime = meta['mtime']
             is_dir = path.endswith('/')
@@ -39,28 +41,26 @@ class RemoteFS:
     def update_remote(self, *, add, remove):
         remove_list = []
         for path in remove:
-            remove_list.append((path + ('/' if self.dict[path].is_dir else '')).encode())
+            remove_list.append(self.crypto.encrypt((path + ('/' if self.dict[path].is_dir else '')).encode()))
         add_list = []
         for path, node in add.items():
             if node.is_dir:
                 add_list.append(SDK_Node(
-                    (path + '/').encode(),
-                    json.dumps({'mode': node.mode, 'mtime': node.mtime}).encode(),
+                    self.crypto.encrypt((path + '/').encode()),
+                    self.crypto.encrypt(json.dumps({'mode': node.mode, 'mtime': node.mtime}).encode()),
                     [],
                 ))
             else:
                 add_list.append(SDK_Node(
-                    path.encode(),
-                    json.dumps({'mode': node.mode, 'mtime': node.mtime, 'size': node.size}).encode(),
+                    self.crypto.encrypt(path.encode()),
+                    self.crypto.encrypt(
+                        json.dumps({'mode': node.mode, 'mtime': node.mtime, 'size': node.size}).encode()),
                     node.block_hashes,
                 ))
         self.server.post_tree(put_items=add_list, delete_paths=remove_list)
 
     def put_blocks(self, blocks):
-        self.server.bulk_post_block(blocks)
-
-    def get_blocks(self, hashes):
-        return self.server.bulk_get_block(hashes)
+        self.server.bulk_post_block([self.crypto.encrypt(block) for block in blocks])
 
     def get_block(self, hash):
-        return self.server.get_block(hash)
+        return self.crypto.decrypt(self.server.get_block(hash))
