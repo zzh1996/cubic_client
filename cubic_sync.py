@@ -95,7 +95,7 @@ if __name__ == '__main__':
     if len(sys.argv) >= 5:
         key = sys.argv[4]
     else:
-        key = ''
+        key = None
     localfs = LocalFS(local_dir, key)
     remotefs = RemoteFS(server, key)
     while sync(localfs, remotefs):
