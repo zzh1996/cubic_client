@@ -7,6 +7,8 @@ import config
 from cubic_sdk.cubic import Cubic as CubicServer
 from localfs import LocalFS
 from remotefs import RemoteFS
+import getpass
+from utils import size
 
 
 def generate_diff(base_dict, target_dict):
@@ -33,16 +35,33 @@ def sync(localfs, remotefs):
     deleted_items, new_items = generate_diff(remotefs.dict, localfs.dict)
     logging.info('%s items to be removed, %s items to be uploaded', len(deleted_items), len(new_items))
     if not deleted_items and not new_items:
-        return False
+        return
 
+    logging.info('Counting files')
+    total_files = sum(1 for path in new_items if not localfs.dict[path].is_dir)
+    total_size = sum(localfs.dict[path].size for path in new_items if not localfs.dict[path].is_dir)
+
+    new_items = sorted(new_items)
     all_block_hashes = set()
+    error_items = []
+    processed_files = 0
+    processed_size = 0
     logging.info('Scanning local files')
     for path in new_items:
         if not localfs.dict[path].is_dir:
-            logging.info('Scanning file %s', path)
-            localfs.generate_block_hashes(path)
+            processed_files += 1
+            processed_size += localfs.dict[path].size
+            logging.info('Scanning file [%s/%s][%s/%s][%s] %s', processed_files, total_files,
+                         size(processed_size), size(total_size), size(localfs.dict[path].size), path)
+            try:
+                localfs.generate_block_hashes(path)
+            except OSError as e:
+                logging.exception(e)
+                error_items.append(path)
+                continue
             for block_hash in localfs.dict[path].block_hashes:
                 all_block_hashes.add(block_hash)
+    new_items = [item for item in new_items if item not in error_items]
     while True:
         logging.info('Checking remote existing blocks')
         nonexists = all_block_hashes - set(remotefs.check_hashes(list(all_block_hashes)))
@@ -55,37 +74,42 @@ def sync(localfs, remotefs):
             add = {path: localfs.dict[path] for path in new_items}
             remotefs.update_remote(add=add, remove=deleted_items)
             logging.info('Uploading done')
-            break
+            return
 
         buffer = []
         for path in new_items:
             node = localfs.dict[path]
             if not node.is_dir:
                 f = None
-                for i, block_hash in enumerate(node.block_hashes):
-                    if block_hash in nonexists:
-                        if f is None:
-                            logging.info('Reading File %s', path)
-                            f = open(localfs.realpath(path), 'rb')
-                        f.seek(config.block_size * i, 0)
-                        block_data = f.read(config.block_size)
-                        buffer.append(block_data)
-                        nonexists.remove(block_hash)
-                        total_size = sum(len(b) for b in buffer)
-                        if total_size >= config.upload_max_size:
-                            logging.info(
-                                'Uploading %s blocks, total size %s bytes',
-                                len(buffer),
-                                total_size,
-                            )
-                            remotefs.put_blocks(buffer)
-                            buffer = []
-                if f is not None:
-                    f.close()
+                try:
+                    for i, block_hash in enumerate(node.block_hashes):
+                        if block_hash in nonexists:
+                            if f is None:
+                                logging.info('Reading File %s', path)
+                                f = open(localfs.realpath(path), 'rb')
+                            f.seek(config.block_size * i, 0)
+                            block_data = f.read(config.block_size)
+                            buffer.append(block_data)
+                            nonexists.remove(block_hash)
+                            total_size = sum(len(b) for b in buffer)
+                            if total_size >= config.upload_max_size:
+                                logging.info(
+                                    'Uploading %s blocks, total size %s bytes',
+                                    len(buffer),
+                                    total_size,
+                                )
+                                remotefs.put_blocks(buffer)
+                                buffer = []
+                    if f is not None:
+                        f.close()
+                except OSError as e:
+                    logging.exception(e)
+                    # TODO: path in new_items should be deleted
+                    if f is not None:
+                        f.close()
         if buffer:
             logging.info('Uploading the last blocks')
             remotefs.put_blocks(buffer)
-    return True
 
 
 if __name__ == '__main__':
@@ -95,7 +119,12 @@ if __name__ == '__main__':
     if len(sys.argv) >= 5:
         key = sys.argv[4]
     else:
-        key = None
+        pw1 = getpass.getpass()
+        pw2 = getpass.getpass()
+        if pw1 == pw2:
+            key = pw1
+        else:
+            exit(-1)
     localfs = LocalFS(local_dir, key)
     remotefs = RemoteFS(server, key)
     while sync(localfs, remotefs):

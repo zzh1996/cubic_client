@@ -2,6 +2,7 @@ from node import Node
 import os
 import config
 from encryption import Encryption
+import logging
 
 
 class LocalFS:
@@ -22,11 +23,19 @@ class LocalFS:
             dir_path = os.path.relpath(root, self.base_path)
             if dir_path == '.':
                 dir_path = ''
-            st = os.stat(self.realpath(dir_path))
+            try:
+                st = os.stat(self.realpath(dir_path))
+            except OSError as e:
+                logging.exception(e)
+                continue
             self.dict[dir_path] = Node(is_dir=True, mode=st.st_mode, mtime=st.st_mtime)
             for file in files:
                 file_path = os.path.join(dir_path, file)
-                st = os.stat(self.realpath(file_path))
+                try:
+                    st = os.stat(self.realpath(file_path))
+                except OSError as e:
+                    logging.exception(e)
+                    continue
                 n = Node(is_dir=False, mode=st.st_mode, mtime=st.st_mtime)
                 n.size = st.st_size
                 self.dict[file_path] = n
