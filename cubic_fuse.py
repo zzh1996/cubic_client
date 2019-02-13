@@ -50,10 +50,16 @@ class CubicFS(LoggingMixIn, Operations):
         path = path[1:]
         if path in self.remotefs.dict:
             item = self.remotefs.dict[path]
-            if item.is_dir:
-                return {'st_size': 0, 'st_mtime': item.mtime, 'st_mode': item.mode}
-            else:
-                return {'st_size': item.size, 'st_mtime': item.mtime, 'st_mode': item.mode}
+            st_mtime = item.mtime
+            st_atime = item.mtime
+            st_ctime = item.mtime
+            st_uid = os.getuid()
+            st_gid = os.getgid()
+            st_mode = item.mode
+            st_size = 0 if item.is_dir else item.size
+            st_nlink = 1
+            return dict(st_mtime=st_mtime, st_atime=st_atime, st_ctime=st_ctime, st_uid=st_uid,
+                        st_gid=st_gid, st_mode=st_mode, st_size=st_size, st_nlink=st_nlink)
         else:
             raise FuseOSError(ENOENT)
 
