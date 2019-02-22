@@ -17,7 +17,7 @@ class RemoteFS:
         if items is None:
             return
         for item in items:
-            path = self.crypto.decrypt(item.path).decode()
+            path = self.crypto.decrypt(item.path).decode('utf8', errors='surrogateescape')
             meta = json.loads(self.crypto.decrypt(item.meta).decode())
             mode = meta['mode']
             mtime = meta['mtime']
@@ -41,18 +41,19 @@ class RemoteFS:
     def update_remote(self, *, add, remove):
         remove_list = []
         for path in remove:
-            remove_list.append(self.crypto.encrypt((path + ('/' if self.dict[path].is_dir else '')).encode()))
+            remove_list.append(self.crypto.encrypt(
+                (path + ('/' if self.dict[path].is_dir else '')).encode('utf8', errors='surrogateescape')))
         add_list = []
         for path, node in add.items():
             if node.is_dir:
                 add_list.append(SDK_Node(
-                    self.crypto.encrypt((path + '/').encode()),
+                    self.crypto.encrypt((path + '/').encode('utf8', errors='surrogateescape')),
                     self.crypto.encrypt(json.dumps({'mode': node.mode, 'mtime': node.mtime}).encode()),
                     [],
                 ))
             else:
                 add_list.append(SDK_Node(
-                    self.crypto.encrypt(path.encode()),
+                    self.crypto.encrypt(path.encode('utf8', errors='surrogateescape')),
                     self.crypto.encrypt(
                         json.dumps({'mode': node.mode, 'mtime': node.mtime, 'size': node.size}).encode()),
                     node.block_hashes,
