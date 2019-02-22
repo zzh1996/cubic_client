@@ -58,7 +58,7 @@ class RemoteFS:
                         json.dumps({'mode': node.mode, 'mtime': node.mtime, 'size': node.size}).encode()),
                     node.block_hashes,
                 ))
-        self.server.post_tree(put_items=add_list, delete_paths=remove_list)
+        return self.server.post_tree(put_items=add_list, delete_paths=remove_list)
 
     def put_blocks(self, blocks):
         self.server.bulk_post_block([self.crypto.encrypt(block) for block in blocks])

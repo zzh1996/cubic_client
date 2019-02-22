@@ -3,6 +3,7 @@ import os
 import config
 from encryption import Encryption
 import logging
+import stat
 
 
 class LocalFS:
@@ -35,6 +36,9 @@ class LocalFS:
                     st = os.stat(self.realpath(file_path))
                 except OSError as e:
                     logging.exception(e)
+                    continue
+                if not stat.S_ISREG(st.st_mode):
+                    logging.warning('Not regular file: %s' % file_path)
                     continue
                 n = Node(is_dir=False, mode=st.st_mode, mtime=st.st_mtime)
                 n.size = st.st_size
