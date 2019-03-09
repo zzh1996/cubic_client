@@ -72,10 +72,8 @@ def sync(localfs, remotefs):
         if not nonexists:
             logging.info('All blocks uploaded, updating directory tree')
             add = {path: localfs.dict[path] for path in new_items}
-            if remotefs.update_remote(add=add, remove=deleted_items):
-                logging.info('Uploading done')
-            else:
-                logging.error('Updating directory tree failed')
+            remotefs.update_remote(add=add, remove=deleted_items)
+            logging.info('Uploading done')
             return
 
         buffer = []
