@@ -2,6 +2,7 @@ from cubic_sdk.cubic import Item as SDK_Node, Cubic as CubicServer
 from node import Node
 import json
 from encryption import Encryption
+import logging
 
 
 class RemoteFS:
@@ -29,14 +30,21 @@ class RemoteFS:
             self.dict[path] = n
 
     def fetch_remote(self):
-        items = self.server.get_tree()
+        logging.info('Downloading remote file list')
+        items = list(self.server.get_tree())
         self.clear()
+        logging.info('Parsing remote file list')
         self.generate_dict(items)
+        logging.info('%s items in total', len(self.dict))
 
     def check_hashes(self, hashes):
-        return [hash for hash, exist in zip(hashes, self.server.bulk_head_block(hashes)) if exist]
+        logging.info('Checking remote existing blocks')
+        exists = [hash for hash, exist in zip(hashes, self.server.bulk_head_block(hashes)) if exist]
+        logging.info('%s blocks exists', len(exists))
+        return exists
 
     def update_remote(self, *, add, remove):
+        logging.info('Updating directory tree')
         remove_list = []
         for path in remove:
             remove_list.append(self.crypto.encrypt(
@@ -56,9 +64,11 @@ class RemoteFS:
                         json.dumps({'mode': node.mode, 'mtime': node.mtime, 'size': node.size}).encode()),
                     node.block_hashes,
                 ))
-        return self.server.post_tree(put_items=add_list, delete_paths=remove_list)
+        self.server.post_tree(put_items=add_list, delete_paths=remove_list)
+        logging.info('Directory tree updated')
 
     def put_blocks(self, blocks):
+        logging.info('Uploading %s blocks, total size %s bytes', len(blocks), sum(len(b) for b in blocks))
         self.server.bulk_post_block([self.crypto.encrypt(block) for block in blocks])
 
     def get_block(self, hash):

@@ -12,6 +12,7 @@ from utils import size
 
 
 def generate_diff(base_dict, target_dict):
+    logging.info('Calculating changes')
     base_set = set(base_dict.keys())
     target_set = set(target_dict.keys())
     common_items = base_set & target_set
@@ -21,19 +22,14 @@ def generate_diff(base_dict, target_dict):
         if base_dict[path] != target_dict[path]:
             deleted_items.add(path)
             new_items.add(path)
+    logging.info('%s items to be removed, %s items to be uploaded', len(deleted_items), len(new_items))
     return deleted_items, new_items
 
 
 def sync(localfs, remotefs):
-    logging.info('Fetching remote file list')
     remotefs.fetch_remote()
-    logging.info('%s items in total', len(remotefs.dict))
-    logging.info('Scanning local file list')
     localfs.generate_dict()
-    logging.info('%s items in total', len(localfs.dict))
-    logging.info('Calculating changes')
     deleted_items, new_items = generate_diff(remotefs.dict, localfs.dict)
-    logging.info('%s items to be removed, %s items to be uploaded', len(deleted_items), len(new_items))
     if not deleted_items and not new_items:
         return
 
@@ -63,17 +59,13 @@ def sync(localfs, remotefs):
                 all_block_hashes.add(block_hash)
     new_items = [item for item in new_items if item not in error_items]
     while True:
-        logging.info('Checking remote existing blocks')
         nonexists = all_block_hashes - set(remotefs.check_hashes(list(all_block_hashes)))
-        logging.info('%s blocks exists, %s blocks to be uploaded',
-                     len(all_block_hashes - nonexists),
-                     len(nonexists),
-                     )
+        logging.info('%s blocks to be uploaded', len(nonexists))
         if not nonexists:
-            logging.info('All blocks uploaded, updating directory tree')
+            logging.info('All blocks uploaded')
             add = {path: localfs.dict[path] for path in new_items}
             remotefs.update_remote(add=add, remove=deleted_items)
-            logging.info('Uploading done')
+            logging.info('All done')
             return
 
         buffer = []
@@ -93,11 +85,6 @@ def sync(localfs, remotefs):
                             nonexists.remove(block_hash)
                             total_size = sum(len(b) for b in buffer)
                             if total_size >= config.upload_max_size:
-                                logging.info(
-                                    'Uploading %s blocks, total size %s bytes',
-                                    len(buffer),
-                                    total_size,
-                                )
                                 remotefs.put_blocks(buffer)
                                 buffer = []
                     if f is not None:
@@ -108,7 +95,6 @@ def sync(localfs, remotefs):
                     if f is not None:
                         f.close()
         if buffer:
-            logging.info('Uploading the last blocks')
             remotefs.put_blocks(buffer)
 
 

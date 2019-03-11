@@ -19,6 +19,7 @@ class LocalFS:
         return os.path.join(self.base_path, path)
 
     def generate_dict(self):
+        logging.info('Scanning local file list')
         self.clear()
         for root, dirs, files in os.walk(self.base_path, followlinks=True):
             dir_path = os.path.relpath(root, self.base_path)
@@ -43,6 +44,7 @@ class LocalFS:
                 n = Node(is_dir=False, mode=st.st_mode, mtime=st.st_mtime)
                 n.size = st.st_size
                 self.dict[file_path] = n
+        logging.info('%s items in total', len(self.dict))
 
     def generate_block_hashes(self, path):
         assert path in self.dict and not self.dict[path].is_dir
