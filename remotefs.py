@@ -14,8 +14,6 @@ class RemoteFS:
         self.dict = {}
 
     def generate_dict(self, items):
-        if items is None:
-            return
         for item in items:
             path = self.crypto.decrypt(item.path).decode('utf8', errors='surrogateescape')
             meta = json.loads(self.crypto.decrypt(item.meta).decode())
