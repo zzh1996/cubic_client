@@ -63,7 +63,7 @@ class CubicFS(LoggingMixIn, Operations):
         else:
             raise FuseOSError(ENOENT)
 
-    def read(self, path, size, offset, fh):
+    def read(self, path, size, offset, fh=None):
         path = path[1:]
         if path in self.remotefs.dict and not self.remotefs.dict[path].is_dir:
             item = self.remotefs.dict[path]
@@ -77,7 +77,7 @@ class CubicFS(LoggingMixIn, Operations):
         else:
             raise FuseOSError(ENOENT)
 
-    def readdir(self, path, fh):
+    def readdir(self, path, fh=None):
         items = ['.', '..']
         path = path[1:]
         if path == '':
