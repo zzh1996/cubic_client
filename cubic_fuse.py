@@ -8,7 +8,20 @@ import time
 from remotefs import RemoteFS
 from errno import ENOENT
 from cubic_sdk.cubic import Cubic as CubicServer
-from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
+
+try:
+    from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
+except EnvironmentError:
+    FUSE = None
+    FuseOSError = OSError
+
+
+    class Operations:
+        pass
+
+
+    class LoggingMixIn:
+        pass
 
 
 class BlockCache:
