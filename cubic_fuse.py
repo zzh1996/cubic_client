@@ -84,6 +84,7 @@ class CubicFS(LoggingMixIn, Operations):
             start_block = offset // config.block_size
             end_block = (offset + size - 1) // config.block_size
             for block_hash in item.block_hashes[start_block:end_block + 1]:
+                logging.debug('Path: %s, hash: %s', path, block_hash)
                 block = self.block_cache.get(block_hash)
                 data += block
             return data[offset % config.block_size:offset % config.block_size + size]

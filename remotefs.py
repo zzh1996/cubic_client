@@ -13,6 +13,7 @@ class RemoteFS:
 
     def clear(self):
         self.dict = {}
+        self.all_block_hashes = set()
 
     def generate_dict(self, items):
         for item in items:
@@ -27,6 +28,7 @@ class RemoteFS:
             else:
                 n.size = meta['size']
                 n.block_hashes = item.blocks
+                self.all_block_hashes.update(n.block_hashes)
             self.dict[path] = n
 
     def fetch_remote(self):
@@ -38,9 +40,10 @@ class RemoteFS:
         logging.info('%s items in total', len(self.dict))
 
     def check_hashes(self, hashes):
+        hashes = list(hashes)
         logging.info('Checking remote existing blocks')
         exists = [hash for hash, exist in zip(hashes, self.server.bulk_head_block(hashes)) if exist]
-        logging.info('%s blocks exists', len(exists))
+        logging.info('%s of %s blocks exists', len(exists), len(hashes))
         return exists
 
     def update_remote(self, *, add, remove):
@@ -68,8 +71,11 @@ class RemoteFS:
         logging.info('Directory tree updated')
 
     def put_blocks(self, blocks):
+        self.put_encrypted_blocks([self.crypto.encrypt(block) for block in blocks])
+
+    def put_encrypted_blocks(self, blocks):
         logging.info('Uploading %s blocks, total size %s bytes', len(blocks), sum(len(b) for b in blocks))
-        self.server.bulk_post_block([self.crypto.encrypt(block) for block in blocks])
+        self.server.bulk_post_block(blocks)
 
     def get_block(self, hash):
         return self.crypto.decrypt(self.server.get_block(hash))

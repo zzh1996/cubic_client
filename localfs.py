@@ -1,15 +1,12 @@
 from node import Node
 import os
-import config
-from encryption import Encryption
 import logging
 import stat
 
 
 class LocalFS:
-    def __init__(self, base_path, key):
+    def __init__(self, base_path):
         self.base_path = base_path
-        self.crypto = Encryption(key)
         self.clear()
 
     def clear(self):
@@ -26,29 +23,27 @@ class LocalFS:
             if dir_path == '.':
                 dir_path = ''
             try:
-                st = os.stat(self.realpath(dir_path))
+                self.dict[dir_path] = self.get_dir_node(dir_path)
             except OSError as e:
                 logging.exception(e)
                 continue
-            self.dict[dir_path] = Node(is_dir=True, mode=st.st_mode, mtime=st.st_mtime)
             for file in files:
                 file_path = os.path.join(dir_path, file)
                 try:
-                    st = os.stat(self.realpath(file_path))
+                    self.dict[file_path] = self.get_file_node(file_path)
                 except OSError as e:
                     logging.exception(e)
                     continue
-                if not stat.S_ISREG(st.st_mode):
-                    logging.warning('Not regular file: %s' % file_path)
-                    continue
-                n = Node(is_dir=False, mode=st.st_mode, mtime=st.st_mtime)
-                n.size = st.st_size
-                self.dict[file_path] = n
         logging.info('%s items in total', len(self.dict))
 
-    def generate_block_hashes(self, path):
-        assert path in self.dict and not self.dict[path].is_dir
-        with open(self.realpath(path), 'rb') as f:
-            self.dict[path].block_hashes = []
-            for block in iter(lambda: f.read(config.block_size), b''):
-                self.dict[path].block_hashes.append(config.hash_algo(self.crypto.encrypt(block)))
+    def get_file_node(self, path):
+        st = os.stat(self.realpath(path))
+        if not stat.S_ISREG(st.st_mode):
+            raise OSError('Not regular file: %s' % path)
+        n = Node(is_dir=False, mode=st.st_mode, mtime=st.st_mtime)
+        n.size = st.st_size
+        return n
+
+    def get_dir_node(self, path):
+        st = os.stat(self.realpath(path))
+        return Node(is_dir=True, mode=st.st_mode, mtime=st.st_mtime)

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# Very beta version!
-
 import html
 import logging
 import os

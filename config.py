@@ -7,3 +7,5 @@ upload_max_size = block_size * 500 # 2 GB
 
 log_level = logging.INFO
 log_format = '%(asctime)s.%(msecs)03d %(levelname)s %(message)s'
+
+check_integrity = False
