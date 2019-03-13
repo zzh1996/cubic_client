@@ -106,7 +106,7 @@ def sync(localfs, remotefs):
     logging.info('All done')
 
 
-if __name__ == '__main__':
+def init_from_config():
     coloredlogs.install(level=config.log_level, fmt=config.log_format)
     server = CubicServer(sys.argv[1], sys.argv[2])
     local_dir = sys.argv[3]
@@ -121,4 +121,9 @@ if __name__ == '__main__':
             exit(-1)
     localfs = LocalFS(local_dir)
     remotefs = RemoteFS(server, key)
+    return localfs, remotefs
+
+
+if __name__ == '__main__':
+    localfs, remotefs = init_from_config()
     sync(localfs, remotefs)

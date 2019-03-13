@@ -1,5 +1,6 @@
 from Cryptodome.Cipher import AES
 from Cryptodome.Hash import HMAC, SHA256, SHA3_256
+import multiprocessing
 
 
 class Encryption:
@@ -26,3 +27,7 @@ class Encryption:
         tag = data[32:32 + 16]
         ciphertext = data[32 + 16:]
         return AES.new(self.key, AES.MODE_GCM, nonce=nonce).decrypt_and_verify(ciphertext, tag)
+
+    def parallel_decrypt(self, iterable):
+        pool = multiprocessing.Pool(multiprocessing.cpu_count())
+        return pool.imap(self.decrypt, iterable, 100)

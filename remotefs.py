@@ -3,6 +3,7 @@ from node import Node
 import json
 from encryption import Encryption
 import logging
+import itertools
 
 
 class RemoteFS:
@@ -16,9 +17,13 @@ class RemoteFS:
         self.all_block_hashes = set()
 
     def generate_dict(self, items):
-        for item in items:
-            path = self.crypto.decrypt(item.path).decode('utf8', errors='surrogateescape')
-            meta = json.loads(self.crypto.decrypt(item.meta).decode())
+        items1, items2 = itertools.tee(items)
+        iterable = itertools.chain.from_iterable((item.path, item.meta) for item in items1)
+        data = list(self.crypto.parallel_decrypt(iterable))
+        paths, metas = data[::2], data[1::2]
+        for item, path, meta in zip(items2, paths, metas):
+            path = path.decode('utf8', errors='surrogateescape')
+            meta = json.loads(meta.decode())
             mode = meta['mode']
             mtime = meta['mtime']
             is_dir = path.endswith('/')
@@ -33,9 +38,8 @@ class RemoteFS:
 
     def fetch_remote(self):
         logging.info('Downloading remote file list')
-        items = list(self.server.get_tree())
+        items = self.server.get_tree()
         self.clear()
-        logging.info('Parsing remote file list')
         self.generate_dict(items)
         logging.info('%s items in total', len(self.dict))
 
